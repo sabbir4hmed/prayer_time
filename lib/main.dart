@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:hijri/hijri_calendar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MyApp());
@@ -54,11 +55,41 @@ class _PrayerAppState extends State<PrayerApp> {
   Timer? _clockTimer;
   Timer? _prayerUpdateTimer;
   
+  // Location settings
+  bool _useAutomaticLocation = true;
+  String _city = 'Tangail';
+  String _country = 'Bangladesh';
+  String _locationDisplay = 'Detecting location...';
+  
   @override
   void initState() {
     super.initState();
+    _loadLocationSettings();
     _setupTimers();
+  }
+  
+  Future<void> _loadLocationSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _useAutomaticLocation = prefs.getBool('useAutomaticLocation') ?? true;
+      _city = prefs.getString('city') ?? 'Tangail';
+      _country = prefs.getString('country') ?? 'Bangladesh';
+      
+      if (_useAutomaticLocation) {
+        _locationDisplay = 'Detecting location...';
+      } else {
+        _locationDisplay = '$_city, $_country';
+      }
+    });
+    
     _loadPrayerTimes();
+  }
+  
+  Future<void> _saveLocationSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('useAutomaticLocation', _useAutomaticLocation);
+    await prefs.setString('city', _city);
+    await prefs.setString('country', _country);
   }
   
   void _setupTimers() {
@@ -82,7 +113,21 @@ class _PrayerAppState extends State<PrayerApp> {
     });
     
     try {
-      final prayerService = PrayerService();
+      final prayerService = PrayerService(
+        useAutomaticLocation: _useAutomaticLocation,
+        city: _city,
+        country: _country,
+      );
+      
+      final locationInfo = await prayerService.getLocationInfo();
+      setState(() {
+        if (_useAutomaticLocation) {
+          _city = locationInfo['city']!;
+          _country = locationInfo['country']!;
+        }
+        _locationDisplay = '$_city, $_country';
+      });
+      
       _todayPrayerTimes = await prayerService.getPrayerTimes();
       _tomorrowPrayerTimes = await prayerService.getPrayerTimes(
         date: DateTime.now().add(const Duration(days: 1))
@@ -97,6 +142,29 @@ class _PrayerAppState extends State<PrayerApp> {
         _errorMessage = 'Failed to load prayer times: $e';
       });
     }
+  }
+  
+  void _showLocationSettings() {
+    showDialog(
+      context: context,
+      builder: (context) => LocationSettingsDialog(
+        useAutomaticLocation: _useAutomaticLocation,
+        city: _city,
+        country: _country,
+        onSave: (useAutomatic, city, country) {
+          setState(() {
+            _useAutomaticLocation = useAutomatic;
+            _city = city;
+            _country = country;
+            if (!_useAutomaticLocation) {
+              _locationDisplay = '$_city, $_country';
+            }
+          });
+          _saveLocationSettings();
+          _loadPrayerTimes();
+        },
+      ),
+    );
   }
   
   @override
@@ -114,8 +182,14 @@ class _PrayerAppState extends State<PrayerApp> {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.location_on),
+            onPressed: _showLocationSettings,
+            tooltip: 'Location Settings',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadPrayerTimes,
+            tooltip: 'Refresh',
           ),
         ],
       ),
@@ -127,7 +201,10 @@ class _PrayerAppState extends State<PrayerApp> {
           child: Column(
             children: [
               // Date & Time Card
-              DateTimeCard(currentTime: _currentTime),
+              DateTimeCard(
+                currentTime: _currentTime,
+                location: _locationDisplay,
+              ),
               
               const SizedBox(height: 16),
               
@@ -160,13 +237,139 @@ class _PrayerAppState extends State<PrayerApp> {
   }
 }
 
+// Location Settings Dialog
+class LocationSettingsDialog extends StatefulWidget {
+  final bool useAutomaticLocation;
+  final String city;
+  final String country;
+  final Function(bool useAutomatic, String city, String country) onSave;
+
+  const LocationSettingsDialog({
+    Key? key,
+    required this.useAutomaticLocation,
+    required this.city,
+    required this.country,
+    required this.onSave,
+  }) : super(key: key);
+
+  @override
+  State<LocationSettingsDialog> createState() => _LocationSettingsDialogState();
+}
+
+class _LocationSettingsDialogState extends State<LocationSettingsDialog> {
+  late bool _useAutomaticLocation;
+  late TextEditingController _cityController;
+  late TextEditingController _countryController;
+
+  @override
+  void initState() {
+    super.initState();
+    _useAutomaticLocation = widget.useAutomaticLocation;
+    _cityController = TextEditingController(text: widget.city);
+    _countryController = TextEditingController(text: widget.country);
+  }
+
+  @override
+  void dispose() {
+    _cityController.dispose();
+    _countryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Location Settings'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Automatic location switch
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Automatic Location',
+                  style: TextStyle(fontSize: 16),
+                ),
+                Switch(
+                  value: _useAutomaticLocation,
+                  onChanged: (value) {
+                    setState(() {
+                      _useAutomaticLocation = value;
+                    });
+                  },
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Manual location inputs
+            if (!_useAutomaticLocation) ...[
+              const Text(
+                'Manual Location:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _cityController,
+                decoration: const InputDecoration(
+                  labelText: 'City',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _countryController,
+                decoration: const InputDecoration(
+                  labelText: 'Country',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ] else ...[
+              const Text(
+                'Location will be detected automatically based on your device location.',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            widget.onSave(
+              _useAutomaticLocation,
+              _cityController.text.trim(),
+              _countryController.text.trim(),
+            );
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 // Date & Time Card Widget
 class DateTimeCard extends StatelessWidget {
   final DateTime currentTime;
+  final String location;
   
   const DateTimeCard({
     Key? key,
     required this.currentTime,
+    required this.location,
   }) : super(key: key);
 
   @override
@@ -178,35 +381,60 @@ class DateTimeCard extends StatelessWidget {
       margin: const EdgeInsets.all(8),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
           children: [
-            // Left side - Dates
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            // Location display
+            Row(
               children: [
-                Text(
-                  DateFormat('EEEE, MMMM d, yyyy').format(currentTime),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                const Icon(Icons.location_on, color: Colors.teal, size: 18),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    location,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${hijriDate.hDay} ${hijriDate.longMonthName}, ${hijriDate.hYear} AH',
-                  style: const TextStyle(fontSize: 14),
                 ),
               ],
             ),
+            const Divider(height: 16),
             
-            // Right side - Clock
-            Text(
-              DateFormat('hh:mm:ss a').format(currentTime),
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+            // Date and time row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Left side - Dates
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      DateFormat('EEEE, MMMM d, yyyy').format(currentTime),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${hijriDate.hDay} ${hijriDate.longMonthName}, ${hijriDate.hYear} AH',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+                
+                // Right side - Clock
+                Text(
+                  DateFormat('hh:mm:ss a').format(currentTime),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1007,15 +1235,32 @@ class Location {
   factory Location.fromJson(Map<String, dynamic> json) {
     return Location(
       latitude: double.parse(json['latitude'].toString()),
-          longitude: double.parse(json['longitude'].toString()),
+      longitude: double.parse(json['longitude'].toString()),
     );
   }
 }
 
 // Prayer Service
 class PrayerService {
-  // Simplified method that doesn't rely on geocoding
-  Future<Map<String, String>> _getLocationInfo() async {
+  final bool useAutomaticLocation;
+  final String city;
+  final String country;
+  
+  PrayerService({
+    this.useAutomaticLocation = true,
+    this.city = 'Tangail',
+    this.country = 'Bangladesh',
+  });
+
+  // Get location information
+  Future<Map<String, String>> getLocationInfo() async {
+    if (!useAutomaticLocation) {
+      return {
+        'city': city,
+        'country': country,
+      };
+    }
+    
     try {
       // Check and request location permission
       LocationPermission permission = await Geolocator.checkPermission();
@@ -1036,14 +1281,12 @@ class PrayerService {
         // Get the position
         Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.low,
-          timeLimit: Duration(seconds: 5),
+          timeLimit: const Duration(seconds: 5),
         );
         
-        // Instead of geocoding, we'll use a hardcoded mapping or default
-        // This is a simplified approach that avoids geocoding errors
-        
-        // For demonstration, we'll just return default values
-        // In a real app, you might want to implement a more sophisticated solution
+        // For now, we'll return default values
+        // In a real app, you might want to use reverse geocoding
+        // to determine city and country from coordinates
         return _getDefaultLocation();
         
       } catch (e) {
@@ -1059,8 +1302,8 @@ class PrayerService {
   // Helper method to return default location
   Map<String, String> _getDefaultLocation() {
     return {
-      'city': 'Tangail',
-      'country': 'Bangladesh',
+      'city': city,
+      'country': country,
     };
   }
 
@@ -1070,8 +1313,8 @@ class PrayerService {
     // Format date as DD-MM-YYYY
     final dateStr = DateFormat('dd-MM-yyyy').format(date);
     
-    // Get location info - simplified to always use default for now
-    final locationInfo = await _getLocationInfo();
+    // Get location info
+    final locationInfo = await getLocationInfo();
     final city = locationInfo['city'];
     final country = locationInfo['country'];
     

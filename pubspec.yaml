@@ -42,6 +42,7 @@ dependencies:
   http: ^1.1.0                # For API requests
   geocoding: ^2.1.0           # For getting city and country from coordinates
   connectivity_plus: ^4.0.2   # For checking internet connectivity
+  shared_preferences: ^2.5.2
 
 dev_dependencies:
   flutter_test:
