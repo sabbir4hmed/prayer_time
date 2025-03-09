@@ -63,7 +63,8 @@ class RamadanTimesCard extends StatelessWidget {
               title: const Text('Today\'s Sehri Ends'),
               trailing: Text(
                 timeFormat.format(sehriEndTime),
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.normal,
+                fontSize: 16),
               ),
               leading: const Icon(Icons.free_breakfast),
             ),
@@ -72,8 +73,10 @@ class RamadanTimesCard extends StatelessWidget {
               title: const Text('Today\'s Iftar Time'),
               trailing: Text(
                 timeFormat.format(maghribPrayer.time),
-                style: const TextStyle(fontWeight: FontWeight.bold,
-                fontSize: 18),
+                style: const TextStyle(
+                  fontWeight: FontWeight.normal,
+                  fontSize: 16,
+                ),
               ),
               leading: const Icon(Icons.dinner_dining),
             ),
@@ -85,7 +88,10 @@ class RamadanTimesCard extends StatelessWidget {
               title: const Text('Tomorrow\'s Sehri Ends'),
               trailing: Text(
                 timeFormat.format(tomorrowSehriEndTime),
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontWeight: FontWeight.normal,
+                  fontSize: 16,
+                ),
               ),
               leading: const Icon(Icons.wb_twilight),
             ),
@@ -95,7 +101,8 @@ class RamadanTimesCard extends StatelessWidget {
               title: const Text('Fasting Duration'),
               trailing: Text(
                 '$fastingHours hours $fastingMinutes minutes',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.normal,
+                fontSize: 16),
               ),
               leading: const Icon(Icons.timer),
             ),

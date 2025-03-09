@@ -29,9 +29,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   
-  # Add sound assets for notifications
-  assets:
-    - assets/sounds/
+ 
     
   # Uncomment and add the following to include sound files
   # fonts:

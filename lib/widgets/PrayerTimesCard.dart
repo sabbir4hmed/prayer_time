@@ -118,6 +118,7 @@ class PrayerTimesCard extends StatelessWidget {
                             fontWeight: isActive || isNext 
                               ? FontWeight.bold 
                               : FontWeight.normal,
+                            fontSize: 16,
                             color: isActive 
                               ? Colors.green 
                               : isNext 
@@ -135,6 +136,7 @@ class PrayerTimesCard extends StatelessWidget {
                             fontWeight: isActive || isNext 
                               ? FontWeight.bold 
                               : FontWeight.normal,
+                            fontSize: 16,
                             color: isActive 
                               ? Colors.green 
                               : isNext 
