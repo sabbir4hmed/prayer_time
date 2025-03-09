@@ -42,56 +42,56 @@ class PrayerApp extends StatefulWidget {
 class _PrayerAppState extends State<PrayerApp> {
   // Current time for clock
   DateTime _currentTime = DateTime.now();
-  
+ 
   // Prayer time data
   DailyPrayerTimes? _todayPrayerTimes;
   DailyPrayerTimes? _tomorrowPrayerTimes;
-  
+ 
   // Loading state
   bool _isLoading = true;
   String? _errorMessage;
-  
+ 
   // Timers
   Timer? _clockTimer;
   Timer? _prayerUpdateTimer;
-  
+ 
   // Location settings
   bool _useAutomaticLocation = true;
   String _city = 'Tangail';
   String _country = 'Bangladesh';
   String _locationDisplay = 'Detecting location...';
-  
+ 
   @override
   void initState() {
     super.initState();
     _loadLocationSettings();
     _setupTimers();
   }
-  
+ 
   Future<void> _loadLocationSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _useAutomaticLocation = prefs.getBool('useAutomaticLocation') ?? true;
       _city = prefs.getString('city') ?? 'Tangail';
       _country = prefs.getString('country') ?? 'Bangladesh';
-      
+     
       if (_useAutomaticLocation) {
         _locationDisplay = 'Detecting location...';
       } else {
         _locationDisplay = '$_city, $_country';
       }
     });
-    
+   
     _loadPrayerTimes();
   }
-  
+ 
   Future<void> _saveLocationSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('useAutomaticLocation', _useAutomaticLocation);
     await prefs.setString('city', _city);
     await prefs.setString('country', _country);
   }
-  
+ 
   void _setupTimers() {
     // Update clock every second
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -99,26 +99,26 @@ class _PrayerAppState extends State<PrayerApp> {
         _currentTime = DateTime.now();
       });
     });
-    
+   
     // Update prayer times every 15 minutes
     _prayerUpdateTimer = Timer.periodic(const Duration(minutes: 15), (timer) {
       _loadPrayerTimes();
     });
   }
-  
+ 
   Future<void> _loadPrayerTimes() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+   
     try {
       final prayerService = PrayerService(
         useAutomaticLocation: _useAutomaticLocation,
         city: _city,
         country: _country,
       );
-      
+     
       final locationInfo = await prayerService.getLocationInfo();
       setState(() {
         if (_useAutomaticLocation) {
@@ -127,12 +127,12 @@ class _PrayerAppState extends State<PrayerApp> {
         }
         _locationDisplay = '$_city, $_country';
       });
-      
+     
       _todayPrayerTimes = await prayerService.getPrayerTimes();
       _tomorrowPrayerTimes = await prayerService.getPrayerTimes(
         date: DateTime.now().add(const Duration(days: 1))
       );
-      
+     
       setState(() {
         _isLoading = false;
       });
@@ -143,7 +143,7 @@ class _PrayerAppState extends State<PrayerApp> {
       });
     }
   }
-  
+ 
   void _showLocationSettings() {
     showDialog(
       context: context,
@@ -166,20 +166,23 @@ class _PrayerAppState extends State<PrayerApp> {
       ),
     );
   }
-  
+ 
   @override
   void dispose() {
     _clockTimer?.cancel();
     _prayerUpdateTimer?.cancel();
     super.dispose();
   }
-  
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Match scaffold color
+        foregroundColor: Colors.white, // For better text contrast
         title: const Text('Prayer Times'),
         centerTitle: true,
+        elevation: 0, // Removes shadow for a flat design
         actions: [
           IconButton(
             icon: const Icon(Icons.location_on),
@@ -205,9 +208,9 @@ class _PrayerAppState extends State<PrayerApp> {
                 currentTime: _currentTime,
                 location: _locationDisplay,
               ),
-              
+             
               const SizedBox(height: 16),
-              
+             
               // Prayer Times Card
               if (_isLoading)
                 const Center(
