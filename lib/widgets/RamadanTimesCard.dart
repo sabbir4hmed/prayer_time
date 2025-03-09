@@ -72,7 +72,8 @@ class RamadanTimesCard extends StatelessWidget {
               title: const Text('Today\'s Iftar Time'),
               trailing: Text(
                 timeFormat.format(maghribPrayer.time),
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold,
+                fontSize: 18),
               ),
               leading: const Icon(Icons.dinner_dining),
             ),
